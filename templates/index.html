@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סטטיסטיקות נוכחות</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            direction: rtl;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #764ba2;
+        }
+        
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .chart-card h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.5em;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+        
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.5em;
+            padding: 50px;
+        }
+        
+        .error {
+            background: #ff6b6b;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .update-notice {
+            background: #4facfe;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 0.9em;
+        }
+        
+        .export-button {
+            background: #43e97b;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+            transition: background 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .export-button:hover {
+            background: #30cfd0;
+        }
+        
+        .export-button:active {
+            transform: translateY(2px);
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-top: 20px;
+        }
+        
+        .calendar-day {
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.9em;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border: 1px solid #ddd;
+        }
+        
+        .calendar-day.weekend {
+            background: #f0f0f0;
+            color: #999;
+        }
+        
+        .calendar-day.present {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .calendar-day.absent {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .calendar-day.no-data {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .calendar-day-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .calendar-month {
+            margin-bottom: 30px;
+        }
+        
+        .calendar-month-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+        
+        .config-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .config-panel h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            min-height: 100px;
+            font-family: monospace;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .submit-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .submit-button:hover {
+            background: #764ba2;
+        }
+        
+        .submit-button:active {
+            transform: translateY(2px);
+        }
+        
+        .help-text {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>סטטיסטיקות נוכחות</h1>
+            <p id="date-range-display">פברואר 2025 - ינואר 2026</p>
+        </div>
+        
+        <div class="config-panel">
+            <h3>הגדרות</h3>
+            <form id="config-form" onsubmit="handleConfigSubmit(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="start-month">חודש התחלה:</label>
+                        <select id="start-month" name="start_month" required>
+                            <option value="1">ינואר</option>
+                            <option value="2" selected>פברואר</option>
+                            <option value="3">מרץ</option>
+                            <option value="4">אפריל</option>
+                            <option value="5">מאי</option>
+                            <option value="6">יוני</option>
+                            <option value="7">יולי</option>
+                            <option value="8">אוגוסט</option>
+                            <option value="9">ספטמבר</option>
+                            <option value="10">אוקטובר</option>
+                            <option value="11">נובמבר</option>
+                            <option value="12">דצמבר</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="start-year">שנת התחלה:</label>
+                        <input type="number" id="start-year" name="start_year" value="2025" min="2020" max="2030" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end-month">חודש סיום:</label>
+                        <select id="end-month" name="end_month" required>
+                            <option value="1" selected>ינואר</option>
+                            <option value="2">פברואר</option>
+                            <option value="3">מרץ</option>
+                            <option value="4">אפריל</option>
+                            <option value="5">מאי</option>
+                            <option value="6">יוני</option>
+                            <option value="7">יולי</option>
+                            <option value="8">אוגוסט</option>
+                            <option value="9">ספטמבר</option>
+                            <option value="10">אוקטובר</option>
+                            <option value="11">נובמבר</option>
+                            <option value="12">דצמבר</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="end-year">שנת סיום:</label>
+                        <input type="number" id="end-year" name="end_year" value="2026" min="2020" max="2030" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="cookie">Cookie (חובה):</label>
+                    <textarea id="cookie" name="cookie" placeholder="הדבק כאן את ה-Cookie מהדפדפן..." required></textarea>
+                    <div class="help-text">כדי להשיג את ה-Cookie: פתח את הדפדפן, התחבר לאתר, לחץ F12, לך ל-Network, מצא בקשה כלשהי, העתק את ה-Cookie מה-Headers</div>
+                    <div class="help-text" style="color: #d32f2f; margin-top: 5px;">⚠️ שים לב: הקוקי נשמר ב-localStorage בדפדפן שלך בלבד. לא מומלץ לשתף אותו עם אחרים.</div>
+                </div>
+                <button type="submit" class="submit-button">טען נתונים</button>
+            </form>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">טוען נתונים...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="update-notice" class="update-notice" style="display: none;">מעדכן נתונים מהשרת...</div>
+        
+        <div id="content" style="display: none;">
+            <button class="export-button" onclick="exportToCSV()">📥 הורד נתונים ל-CSV</button>
+            <div class="stats-grid">
+                <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h3 style="color: white;">ימים בצה"ל<br><small style="font-size: 0.6em;" id="service-days-range">מהתאריך שנבחר</small></h3>
+                    <div class="stat-value" id="total-days-in-service" style="color: white; font-size: 3em;">0</div>
+                    <div style="margin-top: 10px; font-size: 0.9em; opacity: 0.9;">
+                        כולל כל הימים
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <h3>סה"כ רשומות</h3>
+                    <div class="stat-value" id="total-records">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>אחוז נוכחות כללי<br><small style="font-size: 0.6em;">מתוך כל הימים בצה"ל</small></h3>
+                    <div class="stat-value" id="presence-rate">0%</div>
+                </div>
+                <div class="stat-card">
+                    <h3>אחוז נוכחות מדויק<br><small style="font-size: 0.6em;" id="accurate-range">מהתאריך שנבחר</small></h3>
+                    <div class="stat-value" id="accurate-presence-rate">0%</div>
+                    <div style="margin-top: 15px; font-size: 0.9em; color: #666;">
+                        <div>סה"כ ימים (ללא שבת): <span id="total-days">0</span></div>
+                        <div>ימים נוכח: <span id="present-days">0</span></div>
+                        <div>ימים לא נוכח: <span id="absent-days">0</span></div>
+                        <div>שישי ושבת: <span id="weekend-days">0</span></div>
+                        <div>ימים ללא נתונים: <span id="no-data-days">0</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="anomalies-section" style="display: none; margin: 30px 0;">
+                <div class="chart-card">
+                    <h3>חריגות - ימים שדורשים תשומת לב</h3>
+                    <div id="anomalies-list" style="max-height: 400px; overflow-y: auto;">
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin: 30px 0;">
+                <button class="export-button" onclick="toggleCalendar()" style="background: #764ba2;">📅 הצג/הסתר יומן חודשי</button>
+            </div>
+            
+            <div id="calendar-section" style="display: none; margin: 30px 0;">
+                <div class="chart-card">
+                    <h3>יומן חודשי - סטטוס כל יום</h3>
+                    <div id="calendar-container" style="padding: 20px;">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3>התפלגות סטטוסים</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-card">
+                    <h3>נוכחות חודשית</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-card">
+                    <h3>אחוז נוכחות לפי חודש</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="monthlyRateChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-card">
+                    <h3>נוכחות יומית</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="dailyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let statusChart, monthlyChart, monthlyRateChart, dailyChart;
+        let currentConfig = {
+            start_month: '2',
+            start_year: '2025',
+            end_month: '1',
+            end_year: '2026',
+            cookie: ''
+        };
+        
+        const STORAGE_KEY = 'attendance_statistics';
+        const STORAGE_TIMESTAMP_KEY = 'attendance_statistics_timestamp';
+        const STORAGE_LATEST_DATE_KEY = 'attendance_statistics_latest_date';
+        const STORAGE_CONFIG_KEY = 'attendance_config';
+        
+        function handleConfigSubmit(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            currentConfig = {
+                start_month: formData.get('start_month'),
+                start_year: formData.get('start_year'),
+                end_month: formData.get('end_month'),
+                end_year: formData.get('end_year'),
+                cookie: formData.get('cookie') || ''
+            };
+            
+            const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+            const startMonthName = monthNames[parseInt(currentConfig.start_month) - 1];
+            const endMonthName = monthNames[parseInt(currentConfig.end_month) - 1];
+            const dateRangeText = `${startMonthName} ${currentConfig.start_year} - ${endMonthName} ${currentConfig.end_year}`;
+            document.getElementById('date-range-display').textContent = dateRangeText;
+            document.getElementById('service-days-range').textContent = dateRangeText;
+            document.getElementById('accurate-range').textContent = dateRangeText;
+            
+            try {
+                localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(currentConfig));
+            } catch (e) {
+                console.error('Error saving config:', e);
+            }
+            
+            loadStatistics();
+        }
+        
+        function loadSavedConfig() {
+            try {
+                const saved = localStorage.getItem(STORAGE_CONFIG_KEY);
+                if (saved) {
+                    currentConfig = JSON.parse(saved);
+                    document.getElementById('start-month').value = currentConfig.start_month;
+                    document.getElementById('start-year').value = currentConfig.start_year;
+                    document.getElementById('end-month').value = currentConfig.end_month;
+                    document.getElementById('end-year').value = currentConfig.end_year;
+                    document.getElementById('cookie').value = currentConfig.cookie || '';
+                    
+                    const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+                    const startMonthName = monthNames[parseInt(currentConfig.start_month) - 1];
+                    const endMonthName = monthNames[parseInt(currentConfig.end_month) - 1];
+                    const dateRangeText = `${startMonthName} ${currentConfig.start_year} - ${endMonthName} ${currentConfig.end_year}`;
+                    document.getElementById('date-range-display').textContent = dateRangeText;
+                    document.getElementById('service-days-range').textContent = dateRangeText;
+                    document.getElementById('accurate-range').textContent = dateRangeText;
+                }
+            } catch (e) {
+                console.error('Error loading config:', e);
+            }
+        }
+        
+        function saveToLocalStorage(data) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
+                if (data.latest_date) {
+                    localStorage.setItem(STORAGE_LATEST_DATE_KEY, data.latest_date);
+                }
+            } catch (e) {
+                console.error('Error saving to localStorage:', e);
+            }
+        }
+        
+        function loadFromLocalStorage() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                const latestDate = localStorage.getItem(STORAGE_LATEST_DATE_KEY);
+                if (data && latestDate) {
+                    const parsedData = JSON.parse(data);
+                    if (parsedData.latest_date === latestDate) {
+                        return parsedData;
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading from localStorage:', e);
+            }
+            return null;
+        }
+        
+        async function loadStatistics() {
+            if (!currentConfig.cookie) {
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'נא להזין Cookie בטופס ההגדרות';
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+            
+            const cachedData = loadFromLocalStorage();
+            if (cachedData) {
+                document.getElementById('loading').textContent = 'טוען מנתונים שמורים...';
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('content').style.display = 'none';
+                
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('content').style.display = 'block';
+                    updateStatistics(cachedData);
+                    createCharts(cachedData);
+                }, 100);
+            }
+            
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('update-notice').style.display = 'block';
+                const response = await fetch('/api/statistics', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        start_month: currentConfig.start_month,
+                        start_year: currentConfig.start_year,
+                        end_month: currentConfig.end_month,
+                        end_year: currentConfig.end_year,
+                        cookie: currentConfig.cookie
+                    })
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'שגיאה בטעינת הנתונים');
+                }
+                const data = await response.json();
+                
+                saveToLocalStorage(data);
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('update-notice').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+                
+                updateStatistics(data);
+                createCharts(data);
+            } catch (error) {
+                document.getElementById('update-notice').style.display = 'none';
+                if (!cachedData) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('error').style.display = 'block';
+                    document.getElementById('error').textContent = 'שגיאה: ' + error.message;
+                } else {
+                    document.getElementById('loading').style.display = 'none';
+                }
+            }
+        }
+        
+        function calculateDaysInService() {
+            const startDate = new Date(`${currentConfig.start_year}-${currentConfig.start_month.padStart(2, '0')}-01`);
+            const endMonth = parseInt(currentConfig.end_month);
+            const endYear = parseInt(currentConfig.end_year);
+            const lastDay = new Date(endYear, endMonth, 0).getDate();
+            const endDate = new Date(`${endYear}-${endMonth.toString().padStart(2, '0')}-${lastDay}`);
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            return diffDays;
+        }
+        
+        function calculatePresenceRateByTotalDays(dailyPresence) {
+            const totalDays = calculateDaysInService();
+            if (totalDays === 0) return 0;
+            
+            const startDate = new Date(`${currentConfig.start_year}-${currentConfig.start_month.padStart(2, '0')}-01`);
+            const endMonth = parseInt(currentConfig.end_month);
+            const endYear = parseInt(currentConfig.end_year);
+            const lastDay = new Date(endYear, endMonth, 0).getDate();
+            const endDate = new Date(`${endYear}-${endMonth.toString().padStart(2, '0')}-${lastDay}`);
+            const presenceMap = {};
+            
+            dailyPresence.forEach(day => {
+                presenceMap[day.date] = day.present;
+            });
+            
+            let presentDays = 0;
+            const currentDate = new Date(startDate);
+            
+            while (currentDate <= endDate) {
+                const dateStr = currentDate.toISOString().split('T')[0];
+                const weekday = currentDate.getDay();
+                const isWeekend = weekday === 5 || weekday === 6;
+                
+                if (!isWeekend && dateStr in presenceMap && presenceMap[dateStr]) {
+                    presentDays++;
+                }
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            return Math.round((presentDays / totalDays) * 100 * 100) / 100;
+        }
+        
+        let dailyPresenceData = [];
+        
+        function updateStatistics(data) {
+            document.getElementById('total-records').textContent = data.total_records;
+            
+            const totalDays = calculateDaysInService();
+            document.getElementById('total-days-in-service').textContent = totalDays;
+            
+            if (data.daily_presence) {
+                dailyPresenceData = data.daily_presence;
+                window.dailyPresenceData = dailyPresenceData;
+                const presenceRate = calculatePresenceRateByTotalDays(data.daily_presence);
+                document.getElementById('presence-rate').textContent = presenceRate + '%';
+            } else {
+                document.getElementById('presence-rate').textContent = '0%';
+            }
+            
+            if (data.daily_presence) {
+                dailyPresenceData = data.daily_presence;
+                window.dailyPresenceData = dailyPresenceData;
+            }
+            
+            if (data.accurate_presence_rate) {
+                const accurate = data.accurate_presence_rate;
+                document.getElementById('accurate-presence-rate').textContent = accurate.rate + '%';
+                document.getElementById('total-days').textContent = accurate.total_days || 0;
+                document.getElementById('present-days').textContent = accurate.present_days || 0;
+                document.getElementById('absent-days').textContent = accurate.absent_days || 0;
+                document.getElementById('weekend-days').textContent = accurate.weekend_days || 0;
+                document.getElementById('no-data-days').textContent = accurate.no_data_days || 0;
+            }
+            
+            if (data.anomalies && data.anomalies.length > 0) {
+                const anomaliesList = document.getElementById('anomalies-list');
+                anomaliesList.innerHTML = '';
+                data.anomalies.forEach(anomaly => {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'padding: 10px; margin: 5px 0; background: #fff3cd; border-right: 4px solid #ffc107; border-radius: 5px;';
+                    div.innerHTML = `<strong>${anomaly.date}</strong>: ${anomaly.description}`;
+                    anomaliesList.appendChild(div);
+                });
+                document.getElementById('anomalies-section').style.display = 'block';
+            } else {
+                document.getElementById('anomalies-section').style.display = 'none';
+            }
+            
+            if (data.from_backup) {
+                const backupNotice = document.createElement('div');
+                backupNotice.className = 'update-notice';
+                backupNotice.style.cssText = 'background: #ffc107; color: #000; padding: 15px; border-radius: 10px; text-align: center; margin: 20px 0; font-weight: bold;';
+                backupNotice.textContent = '⚠️ הנתונים נטענו מהקובץ הגיבוי (CSV) - אין תקשורת עם השרת';
+                const content = document.getElementById('content');
+                content.insertBefore(backupNotice, content.firstChild);
+            }
+        }
+        
+        function createCharts(data) {
+            createStatusChart(data.status_distribution);
+            createMonthlyChart(data.monthly_statistics);
+            createMonthlyRateChart(data.monthly_presence_rates);
+            createDailyChart(data.daily_presence);
+        }
+        
+        function createStatusChart(statusDistribution) {
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            const labels = Object.keys(statusDistribution);
+            const values = Object.values(statusDistribution);
+            
+            if (statusChart) {
+                statusChart.destroy();
+            }
+            
+            statusChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: [
+                            '#667eea',
+                            '#764ba2',
+                            '#f093fb',
+                            '#4facfe',
+                            '#43e97b',
+                            '#fa709a',
+                            '#fee140',
+                            '#30cfd0'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createMonthlyChart(monthlyStats) {
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            const months = Object.keys(monthlyStats).sort();
+            const statuses = new Set();
+            
+            months.forEach(month => {
+                Object.keys(monthlyStats[month]).forEach(status => statuses.add(status));
+            });
+            
+            const datasets = Array.from(statuses).map((status, index) => {
+                const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a'];
+                return {
+                    label: status,
+                    data: months.map(month => monthlyStats[month][status] || 0),
+                    backgroundColor: colors[index % colors.length],
+                    borderColor: colors[index % colors.length],
+                    borderWidth: 1
+                };
+            });
+            
+            if (monthlyChart) {
+                monthlyChart.destroy();
+            }
+            
+            monthlyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createMonthlyRateChart(monthlyRates) {
+            const ctx = document.getElementById('monthlyRateChart').getContext('2d');
+            const months = Object.keys(monthlyRates).sort();
+            const rates = months.map(month => monthlyRates[month]);
+            
+            if (monthlyRateChart) {
+                monthlyRateChart.destroy();
+            }
+            
+            monthlyRateChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'אחוז נוכחות',
+                        data: rates,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createDailyChart(dailyPresence) {
+            const ctx = document.getElementById('dailyChart').getContext('2d');
+            const sortedPresence = [...dailyPresence].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const dates = sortedPresence.map(day => day.date);
+            const presentData = sortedPresence.map(day => day.present ? 1 : 0);
+            
+            if (dailyChart) {
+                dailyChart.destroy();
+            }
+            
+            dailyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'נוכח',
+                        data: presentData,
+                        borderColor: '#43e97b',
+                        backgroundColor: 'rgba(67, 233, 123, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: dates.length > 200 ? 1 : 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return value === 1 ? 'נוכח' : 'לא נוכח';
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: dates.length > 50 ? 90 : 45,
+                                minRotation: dates.length > 50 ? 90 : 45,
+                                maxTicksLimit: dates.length > 100 ? 50 : undefined
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        async function exportToCSV() {
+            if (!currentConfig.cookie) {
+                alert('נא להזין Cookie בטופס ההגדרות');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/export/csv', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        start_month: currentConfig.start_month,
+                        start_year: currentConfig.start_year,
+                        end_month: currentConfig.end_month,
+                        end_year: currentConfig.end_year,
+                        cookie: currentConfig.cookie
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('שגיאה בייצוא הקובץ');
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `attendance_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('שגיאה: ' + error.message);
+            }
+        }
+        
+        function toggleCalendar() {
+            const calendarSection = document.getElementById('calendar-section');
+            if (calendarSection.style.display === 'none') {
+                calendarSection.style.display = 'block';
+                renderCalendar();
+            } else {
+                calendarSection.style.display = 'none';
+            }
+        }
+        
+        function renderCalendar() {
+            const container = document.getElementById('calendar-container');
+            container.innerHTML = '';
+            
+            const dailyPresence = window.dailyPresenceData || [];
+            const presenceMap = {};
+            dailyPresence.forEach(day => {
+                presenceMap[day.date] = {
+                    present: day.present,
+                    status: day.status || ''
+                };
+            });
+            
+            const startDate = new Date(`${currentConfig.start_year}-${currentConfig.start_month.padStart(2, '0')}-01`);
+            const endMonthNum = parseInt(currentConfig.end_month);
+            const endYear = parseInt(currentConfig.end_year);
+            const lastDay = new Date(endYear, endMonthNum, 0).getDate();
+            const endDate = new Date(`${endYear}-${endMonthNum.toString().padStart(2, '0')}-${lastDay}`);
+            
+            const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+            const dayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+            
+            const currentMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+            const endMonthDate = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+            
+            while (currentMonth <= endMonthDate) {
+                const year = currentMonth.getFullYear();
+                const month = currentMonth.getMonth();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'calendar-month';
+                
+                monthDiv.innerHTML = `<div class="calendar-month-title">${monthNames[month]} ${year}</div>`;
+                
+                const grid = document.createElement('div');
+                grid.className = 'calendar-grid';
+                
+                dayNames.forEach(dayName => {
+                    const header = document.createElement('div');
+                    header.className = 'calendar-day-header';
+                    header.textContent = dayName;
+                    header.style.cssText = 'font-weight: bold; padding: 5px; text-align: center;';
+                    grid.appendChild(header);
+                });
+                
+                const firstDay = new Date(year, month, 1);
+                const firstDayWeekday = firstDay.getDay();
+                
+                for (let i = 0; i < firstDayWeekday; i++) {
+                    const empty = document.createElement('div');
+                    empty.className = 'calendar-day';
+                    empty.style.visibility = 'hidden';
+                    grid.appendChild(empty);
+                }
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const currentDate = new Date(year, month, day);
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    const weekday = currentDate.getDay();
+                    const isWeekend = weekday === 5 || weekday === 6;
+                    
+                    let status = 'no-data';
+                    let statusText = 'ללא נתון';
+                    
+                    if (currentDate < startDate || currentDate > endDate) {
+                        status = 'no-data';
+                        statusText = '';
+                    } else if (isWeekend) {
+                        status = 'weekend';
+                        statusText = 'שבת';
+                    } else {
+                        const dayData = presenceMap[dateStr];
+                        if (dayData) {
+                            if (dayData.present) {
+                                status = 'present';
+                                statusText = 'נוכח';
+                            } else {
+                                status = 'absent';
+                                statusText = dayData.status || 'לא נוכח';
+                            }
+                        }
+                    }
+                    
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = `calendar-day ${status}`;
+                    dayDiv.innerHTML = `
+                        <div style="font-weight: bold;">${day}</div>
+                        <div style="font-size: 0.8em; margin-top: 5px;">${statusText}</div>
+                    `;
+                    grid.appendChild(dayDiv);
+                }
+                
+                monthDiv.appendChild(grid);
+                container.appendChild(monthDiv);
+                
+                currentMonth.setMonth(currentMonth.getMonth() + 1);
+            }
+        }
+        
+        loadStatistics();
+    </script>
+</body>
+</html>
+
