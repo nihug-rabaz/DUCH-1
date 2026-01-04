@@ -101,4 +101,3 @@ report1-dashboard/
 ## תמיכה
 
 לשאלות או בעיות, פתח issue ב-GitHub.
-
