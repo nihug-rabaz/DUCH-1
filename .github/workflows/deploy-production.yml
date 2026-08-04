@@ -1,0 +1,34 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: Branch, tag or commit SHA to deploy
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(vars.VERCEL_DEPLOY_TARGETS) }}
+    uses: nihug-rabaz/platform-workflows/.github/workflows/vercel-production.yml@v1
+    with:
+      project-name: ${{ matrix.name }}
+      vercel-project-id: ${{ matrix.project_id }}
+      vercel-org-id: ${{ matrix.org_id }}
+      working-directory: ${{ matrix.root_directory }}
+      node-version: ${{ matrix.node_version }}
+      deploy-ref: ${{ github.event.inputs.deploy_ref || github.sha }}
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
