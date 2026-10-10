@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% set active = 'home' %}
+{% block title %}בית · DUCH-1 Premium{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2 id="greeting">שלום</h2>
+  <p class="muted" id="home-sub">טוען סיכום דיווח...</p>
+  <div id="home-error" class="notice notice-error" style="display:none; margin-top:12px;"></div>
+</div>
+
+<div class="stat-grid" style="margin-bottom:16px;">
+  <div class="stat-tile">
+    <div class="value" id="stat-main">—</div>
+    <div class="label">סטטוס ראשי נוכחי</div>
+  </div>
+  <div class="stat-tile">
+    <div class="value" id="stat-secondary" style="font-size:1.2rem;">—</div>
+    <div class="label">סטטוס משני</div>
+  </div>
+  <div class="stat-tile">
+    <div class="value" id="stat-future">0</div>
+    <div class="label">דיווחים עתידיים</div>
+  </div>
+</div>
+
+<div class="card stack">
+  <h3>פעולות מהירות</h3>
+  <div class="row">
+    <a class="btn btn-primary" href="/report">דיווח מרוכז (פרימיום)</a>
+    <a class="btn btn-secondary" href="/future">דיווחים עתידיים / ביטול</a>
+    <a class="btn btn-secondary" href="/stats">סטטיסטיקות</a>
+    <a class="btn btn-ghost" href="https://one.prat.idf.il/hp" target="_blank" rel="noopener">פתח דו״ח 1 המקורי</a>
+  </div>
+  <div class="notice notice-info">
+    דיווח מרוכז מאפשר בחירת מספר תאריכים בפעולה אחת, כולל תאריכים מעבר למגבלת 7 הימים של ממשק דו״ח 1.
+  </div>
+</div>
+
+<div class="card">
+  <h3>דיווחים עתידיים קרובים</h3>
+  <div id="home-future-list" class="stack">
+    <div class="muted">טוען...</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', async function () {
+    if (!DuchSession.requireSession('/login')) return;
+    DuchSession.updateSessionBadge();
+
+    const err = document.getElementById('home-error');
+    try {
+      const result = await DuchSession.apiPost('/api/home/summary', {});
+      if (!result.ok) {
+        if (result.data.auth_expired) {
+          err.textContent = 'הסשן פג תוקף — יש להתחבר מחדש';
+          err.style.display = 'block';
+          DuchSession.updateSessionBadge();
+          return;
+        }
+        err.textContent = (result.data && result.data.error) || 'שגיאה בטעינת הסיכום';
+        err.style.display = 'block';
+        return;
+      }
+      const data = result.data;
+      const name = data.user_name || (DuchSession.getSession() || {}).userName || '';
+      document.getElementById('greeting').textContent = name ? ('שלום, ' + name) : 'שלום';
+      document.getElementById('home-sub').textContent = 'סיכום דיווח נוכחי מתוך דו״ח 1';
+
+      const reported = data.reported || {};
+      const main =
+        reported.mainStatusDeterminedName ||
+        reported.mainStatusReported ||
+        reported.mainStatus ||
+        reported.primaryStatus ||
+        '—';
+      const secondary =
+        reported.secondaryStatusDeterminedName ||
+        reported.secondaryStatusReported ||
+        reported.secondaryStatus ||
+        '—';
+      document.getElementById('stat-main').textContent = main;
+      document.getElementById('stat-secondary').textContent = secondary;
+      document.getElementById('stat-future').textContent = data.future_count || 0;
+
+      const list = document.getElementById('home-future-list');
+      const reports = data.future_reports || [];
+      if (!reports.length) {
+        list.innerHTML = '<div class="muted">אין דיווחים עתידיים מתוזמנים</div>';
+      } else {
+        list.innerHTML = '';
+        reports.slice(0, 8).forEach(function (r) {
+          const div = document.createElement('div');
+          div.className = 'result-row';
+          div.innerHTML = '<strong>' + (r.date_prat || r.date) + '</strong> · ' +
+            (r.main || '—') + (r.secondary ? (' · ' + r.secondary) : '');
+          list.appendChild(div);
+        });
+        if (reports.length > 8) {
+          const more = document.createElement('a');
+          more.href = '/future';
+          more.textContent = 'הצג את כל ' + reports.length + ' הדיווחים';
+          list.appendChild(more);
+        }
+      }
+
+      if (name) {
+        DuchSession.setSession(DuchSession.getCookie(), { userName: name, valid: true });
+      }
+      DuchSession.updateSessionBadge();
+    } catch (e) {
+      err.textContent = e.message || 'שגיאה';
+      err.style.display = 'block';
+    }
+  });
+</script>
+{% endblock %}

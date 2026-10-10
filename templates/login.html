@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% set active = 'login' %}
+{% block title %}התחברות · DUCH-1 Premium{% endblock %}
+
+{% block nav %}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 560px; margin: 24px auto;">
+  <div class="steps" id="login-steps">
+    <span class="step-pill active" data-step="1">תעודת זהות</span>
+    <span class="step-pill" data-step="2">Microsoft</span>
+    <span class="step-pill" data-step="3">הדבקת קישור</span>
+  </div>
+  <div class="progress-bar"><span id="login-progress" style="width: 33%"></span></div>
+
+  <div id="step-1" class="stack">
+    <h2>זיהוי והתחברות</h2>
+    <p class="muted">בדיוק כמו בחוגר: פותחים התחברות Microsoft, בסוף מעתיקים את הכתובת מהשורת כתובת (עם <code>#code=</code>), ומדביקים כאן.</p>
+    <label for="id-number">תעודת זהות</label>
+    <input type="text" id="id-number" inputmode="numeric" autocomplete="username" placeholder="9 ספרות">
+    <div id="login-error" class="notice notice-error" style="display:none;"></div>
+    <button class="btn btn-primary" type="button" id="btn-start">המשך להתחברות</button>
+    <button class="btn btn-ghost" type="button" id="btn-logout-local" style="display:none;">נקה סשן מקומי</button>
+  </div>
+
+  <div id="step-2" class="stack" style="display:none;">
+    <h2>התחברות Microsoft</h2>
+    <p class="muted">ייפתח חלון התחברות. בסוף אל תסגור — לחץ על שורת הכתובת, העתק את <strong>כל הקישור</strong> (מתחיל ב־one.prat.idf.il ומכיל code=), וחזור לכאן.</p>
+    <div class="notice notice-info">
+      אם הדפדפן מציג שגיאה אחרי ההתחברות — זה בסדר. העיקר שיש <code>#code=</code> בכתובת.
+    </div>
+    <button class="btn btn-green" type="button" id="btn-open-auth">פתח התחברות Microsoft</button>
+    <button class="btn btn-primary" type="button" id="btn-to-step-3">העתקתי את הקישור — המשך</button>
+    <button class="btn btn-secondary" type="button" id="btn-back-1">חזרה</button>
+  </div>
+
+  <div id="step-3" class="stack" style="display:none;">
+    <h2>הדבקת קישור החזרה</h2>
+    <label for="redirect-url">הקישור משורת הכתובת</label>
+    <textarea id="redirect-url" placeholder="https://one.prat.idf.il/#code=..." style="direction:ltr; text-align:left;"></textarea>
+    <div class="help-text">כמו בחוגר: נזהה את ה-<code>code</code>, נמיר לטוקן Microsoft, ואז ניצור סשן דו״ח 1.</div>
+    <div id="login-success" class="notice notice-success" style="display:none;"></div>
+    <div id="login-error-3" class="notice notice-error" style="display:none;"></div>
+    <button class="btn btn-primary" type="button" id="btn-complete">התחבר מהקישור</button>
+    <button class="btn btn-secondary" type="button" id="btn-back-2">חזרה</button>
+
+    <details style="margin-top:12px;">
+      <summary class="muted">גיבוי למתקדמים (JWT / Cookie)</summary>
+      <div class="stack" style="margin-top:10px;">
+        <textarea id="ms-token-input" placeholder="JWT מ-authorization (אופציונלי)"></textarea>
+        <textarea id="cookie-input" placeholder="Cookie מלא כולל AppCookie (אופציונלי)"></textarea>
+        <button class="btn btn-secondary" type="button" id="btn-ms-login">התחבר עם JWT</button>
+        <button class="btn btn-secondary" type="button" id="btn-validate">אמת Cookie קיים</button>
+      </div>
+    </details>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const PENDING_KEY = 'duch1_oauth_pending';
+  let step = 1;
+
+  function showStep(n) {
+    step = n;
+    [1, 2, 3].forEach(function (i) {
+      document.getElementById('step-' + i).style.display = i === n ? 'flex' : 'none';
+      const pill = document.querySelector('.step-pill[data-step="' + i + '"]');
+      pill.classList.remove('active', 'done');
+      if (i < n) pill.classList.add('done');
+      if (i === n) pill.classList.add('active');
+    });
+    document.getElementById('login-progress').style.width = (n * 33.34) + '%';
+  }
+
+  function showErr(elId, msg) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function hideErr(elId) {
+    const el = document.getElementById(elId);
+    el.style.display = 'none';
+  }
+
+  function savePending(pending) {
+    localStorage.setItem(PENDING_KEY, JSON.stringify(Object.assign({ createdAt: Date.now() }, pending)));
+  }
+
+  function loadPending() {
+    try {
+      const raw = localStorage.getItem(PENDING_KEY);
+      if (!raw) return null;
+      const pending = JSON.parse(raw);
+      if (!pending.codeVerifier) return null;
+      if (Date.now() - (pending.createdAt || 0) > 10 * 60 * 1000) {
+        localStorage.removeItem(PENDING_KEY);
+        return null;
+      }
+      return pending;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  document.getElementById('btn-start').onclick = async function () {
+    hideErr('login-error');
+    const idNumber = document.getElementById('id-number').value.trim();
+    if (!idNumber) {
+      showErr('login-error', 'נא להזין תעודת זהות');
+      return;
+    }
+    const btn = document.getElementById('btn-start');
+    btn.disabled = true;
+    btn.textContent = 'מכין התחברות...';
+    try {
+      const response = await fetch('/api/session/auth-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_number: idNumber })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.authUrl) {
+        showErr('login-error', (data && data.error) || 'לא ניתן ליצור קישור התחברות');
+        return;
+      }
+      savePending({
+        codeVerifier: data.codeVerifier,
+        redirectUri: data.redirectUri,
+        clientId: data.clientId,
+        authUrl: data.authUrl,
+        idNumber: idNumber
+      });
+      showStep(2);
+    } catch (e) {
+      showErr('login-error', e.message || 'שגיאה');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'המשך להתחברות';
+    }
+  };
+
+  document.getElementById('btn-open-auth').onclick = function () {
+    const pending = loadPending();
+    if (!pending || !pending.authUrl) {
+      showStep(1);
+      showErr('login-error', 'צריך להתחיל מחדש מתעודת זהות');
+      return;
+    }
+    window.open(pending.authUrl, '_blank', 'noopener');
+  };
+
+  document.getElementById('btn-to-step-3').onclick = function () { showStep(3); };
+  document.getElementById('btn-back-1').onclick = function () { showStep(1); };
+  document.getElementById('btn-back-2').onclick = function () { showStep(2); };
+
+  document.getElementById('btn-complete').onclick = async function () {
+    hideErr('login-error-3');
+    document.getElementById('login-success').style.display = 'none';
+    const pending = loadPending();
+    if (!pending || !pending.codeVerifier) {
+      showErr('login-error-3', 'פג תוקף של שלב ההתחברות — התחל מחדש מתעודת זהות');
+      return;
+    }
+    const pasted = document.getElementById('redirect-url').value.trim();
+    if (!pasted) {
+      showErr('login-error-3', 'נא להדביק את הקישור משורת הכתובת');
+      return;
+    }
+    const btn = document.getElementById('btn-complete');
+    btn.disabled = true;
+    btn.textContent = 'מתחבר...';
+    try {
+      const response = await fetch('/api/session/complete-oauth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pasted_url: pasted,
+          code_verifier: pending.codeVerifier
+        })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.cookie) {
+        showErr('login-error-3', (data && data.error) || 'התחברות מהקישור נכשלה');
+        return;
+      }
+      DuchSession.setSession(data.cookie, {
+        userName: data.user_name || '',
+        valid: true,
+        authMode: 'oauth-paste-url'
+      });
+      localStorage.removeItem(PENDING_KEY);
+      DuchSession.updateSessionBadge();
+      document.getElementById('login-success').textContent =
+        'התחברת בהצלחה' + (data.user_name ? (' · ' + data.user_name) : '');
+      document.getElementById('login-success').style.display = 'block';
+      setTimeout(function () { window.location.href = '/home'; }, 700);
+    } catch (e) {
+      showErr('login-error-3', e.message || 'שגיאה');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'התחבר מהקישור';
+    }
+  };
+
+  document.getElementById('btn-logout-local').onclick = function () {
+    DuchSession.clearSession();
+    localStorage.removeItem(PENDING_KEY);
+    DuchSession.updateSessionBadge();
+    document.getElementById('btn-logout-local').style.display = 'none';
+  };
+
+  document.getElementById('btn-ms-login').onclick = async function () {
+    hideErr('login-error-3');
+    const token = document.getElementById('ms-token-input').value.trim();
+    if (!token) {
+      showErr('login-error-3', 'נא להדביק JWT');
+      return;
+    }
+    const response = await fetch('/api/session/ms-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ms_token: token })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.cookie) {
+      showErr('login-error-3', (data && data.error) || 'התחברות נכשלה');
+      return;
+    }
+    DuchSession.setSession(data.cookie, { userName: data.user_name || '', valid: true, authMode: 'ms-login' });
+    DuchSession.updateSessionBadge();
+    window.location.href = '/home';
+  };
+
+  document.getElementById('btn-validate').onclick = async function () {
+    hideErr('login-error-3');
+    const cookie = document.getElementById('cookie-input').value.trim();
+    if (!cookie) {
+      showErr('login-error-3', 'נא להדביק Cookie');
+      return;
+    }
+    DuchSession.setSession(cookie);
+    const result = await DuchSession.validateSession();
+    if (!result.ok) {
+      showErr('login-error-3', result.error || 'אימות נכשל');
+      return;
+    }
+    DuchSession.updateSessionBadge();
+    window.location.href = '/home';
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (DuchSession.hasSession()) {
+      document.getElementById('btn-logout-local').style.display = 'inline-flex';
+    }
+    const pending = loadPending();
+    if (pending) showStep(2);
+    DuchSession.updateSessionBadge();
+  });
+</script>
+{% endblock %}

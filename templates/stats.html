@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% set active = 'stats' %}
+{% block title %}סטטיסטיקות · DUCH-1 Premium{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="card stack">
+  <h2>סטטיסטיקות נוכחות</h2>
+  <p class="muted">הנתונים נטענים עם הסשן השמור — אין צורך להדביק Cookie בכל פעם.</p>
+  <div class="row">
+    <div style="flex:1; min-width:120px;">
+      <label>חודש התחלה</label>
+      <select id="start-month">
+        <option value="1">ינואר</option><option value="2" selected>פברואר</option><option value="3">מרץ</option>
+        <option value="4">אפריל</option><option value="5">מאי</option><option value="6">יוני</option>
+        <option value="7">יולי</option><option value="8">אוגוסט</option><option value="9">ספטמבר</option>
+        <option value="10">אוקטובר</option><option value="11">נובמבר</option><option value="12">דצמבר</option>
+      </select>
+    </div>
+    <div style="flex:1; min-width:120px;">
+      <label>שנת התחלה</label>
+      <input type="number" id="start-year" value="2025">
+    </div>
+    <div style="flex:1; min-width:120px;">
+      <label>חודש סיום</label>
+      <select id="end-month">
+        <option value="1" selected>ינואר</option><option value="2">פברואר</option><option value="3">מרץ</option>
+        <option value="4">אפריל</option><option value="5">מאי</option><option value="6">יוני</option>
+        <option value="7">יולי</option><option value="8">אוגוסט</option><option value="9">ספטמבר</option>
+        <option value="10">אוקטובר</option><option value="11">נובמבר</option><option value="12">דצמבר</option>
+      </select>
+    </div>
+    <div style="flex:1; min-width:120px;">
+      <label>שנת סיום</label>
+      <input type="number" id="end-year" value="2026">
+    </div>
+  </div>
+  <div class="row">
+    <button class="btn btn-primary" type="button" id="btn-load">טען נתונים</button>
+    <button class="btn btn-secondary" type="button" id="btn-export">הורד CSV</button>
+  </div>
+  <div id="stats-error" class="notice notice-error" style="display:none;"></div>
+  <div id="stats-loading" class="muted" style="display:none;">טוען...</div>
+</div>
+
+<div id="stats-content" style="display:none;">
+  <div class="stat-grid" style="margin-bottom:16px;">
+    <div class="stat-tile"><div class="value" id="total-records">0</div><div class="label">סה״כ רשומות</div></div>
+    <div class="stat-tile"><div class="value" id="presence-rate">0%</div><div class="label">אחוז נוכחות מדויק</div></div>
+    <div class="stat-tile"><div class="value" id="present-days">0</div><div class="label">ימים נוכח</div></div>
+    <div class="stat-tile"><div class="value" id="absent-days">0</div><div class="label">ימים לא נוכח</div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="card"><h3>התפלגות סטטוסים</h3><div class="chart-wrap"><canvas id="statusChart"></canvas></div></div>
+    <div class="card"><h3>אחוז נוכחות לפי חודש</h3><div class="chart-wrap"><canvas id="monthlyRateChart"></canvas></div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let statusChart, monthlyRateChart;
+
+  function configBody() {
+    return {
+      start_month: document.getElementById('start-month').value,
+      start_year: document.getElementById('start-year').value,
+      end_month: document.getElementById('end-month').value,
+      end_year: document.getElementById('end-year').value
+    };
+  }
+
+  function renderCharts(data) {
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    const labels = Object.keys(data.status_distribution || {});
+    const values = Object.values(data.status_distribution || {});
+    if (statusChart) statusChart.destroy();
+    statusChart = new Chart(statusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: ['#5b2d8e', '#2f8f4e', '#3a6ea5', '#b8860b', '#c0392b', '#7a4bb0', '#88c399', '#f0c76a']
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    const rateCtx = document.getElementById('monthlyRateChart').getContext('2d');
+    const months = Object.keys(data.monthly_presence_rates || {}).sort();
+    const rates = months.map(function (m) { return data.monthly_presence_rates[m]; });
+    if (monthlyRateChart) monthlyRateChart.destroy();
+    monthlyRateChart = new Chart(rateCtx, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [{
+          label: 'אחוז נוכחות',
+          data: rates,
+          borderColor: '#5b2d8e',
+          backgroundColor: 'rgba(91,45,142,0.1)',
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, max: 100 } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  async function loadStats() {
+    if (!DuchSession.requireSession('/login')) return;
+    const err = document.getElementById('stats-error');
+    const loading = document.getElementById('stats-loading');
+    err.style.display = 'none';
+    loading.style.display = 'block';
+    try {
+      const result = await DuchSession.apiPost('/api/statistics', configBody());
+      loading.style.display = 'none';
+      if (!result.ok) {
+        if (result.data.auth_expired) DuchSession.updateSessionBadge();
+        err.textContent = (result.data && result.data.error) || 'שגיאה בטעינה';
+        err.style.display = 'block';
+        return;
+      }
+      const data = result.data;
+      document.getElementById('stats-content').style.display = 'block';
+      document.getElementById('total-records').textContent = data.total_records || 0;
+      const accurate = data.accurate_presence_rate || {};
+      document.getElementById('presence-rate').textContent = (accurate.rate || 0) + '%';
+      document.getElementById('present-days').textContent = accurate.present_days || 0;
+      document.getElementById('absent-days').textContent = accurate.absent_days || 0;
+      renderCharts(data);
+    } catch (e) {
+      loading.style.display = 'none';
+      err.textContent = e.message || 'שגיאה';
+      err.style.display = 'block';
+    }
+  }
+
+  async function exportCsv() {
+    if (!DuchSession.requireSession('/login')) return;
+    const response = await fetch('/api/export/csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ cookie: DuchSession.getCookie() }, configBody()))
+    });
+    if (!response.ok) {
+      alert('שגיאה בייצוא');
+      return;
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'attendance_' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!DuchSession.requireSession('/login')) return;
+    DuchSession.updateSessionBadge();
+    document.getElementById('btn-load').onclick = loadStats;
+    document.getElementById('btn-export').onclick = exportCsv;
+    loadStats();
+  });
+</script>
+{% endblock %}

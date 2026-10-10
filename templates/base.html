@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}DUCH-1 Premium{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>דו״ח 1 · Premium</h1>
+          <div class="subtitle">DUCH-1 · nihug-rabaz</div>
+        </div>
+      </div>
+      <div id="session-badge" class="session-badge">בודק סשן...</div>
+    </header>
+
+    {% block nav %}
+    <nav class="nav-tabs">
+      <a href="/home" class="{% if active == 'home' %}active{% endif %}">בית</a>
+      <a href="/report" class="{% if active == 'report' %}active{% endif %}">דיווח מרוכז</a>
+      <a href="/future" class="{% if active == 'future' %}active{% endif %}">דיווחים עתידיים</a>
+      <a href="/stats" class="{% if active == 'stats' %}active{% endif %}">סטטיסטיקות</a>
+      <a href="/login" class="{% if active == 'login' %}active{% endif %}">סשן</a>
+    </nav>
+    {% endblock %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="{{ url_for('static', filename='js/session.js') }}"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.DuchSession) {
+        DuchSession.updateSessionBadge();
+      }
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

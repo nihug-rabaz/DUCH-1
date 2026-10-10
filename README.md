@@ -1,103 +1,67 @@
-# Report 1 Dashboard
+# DUCH-1 Premium (דו״ח 1)
 
-מערכת דשבורד לניהול וצפייה בסטטיסטיקות נוכחות בצה"ל.
+דשבורד פרימיום לדיווח נוכחות וסטטיסטיקות מול `one.prat.idf.il`.
 
-## תכונות
+## אפליקציה ראשית (Next.js)
 
-- 📊 **דשבורד אינטראקטיבי** - צפייה בסטטיסטיקות נוכחות בזמן אמת
-- 📅 **בחירת טווח תאריכים** - בחירה חופשית של חודש התחלה וסיום
-- 🔐 **אימות דינמי** - הזנת Cookie אישי למניעת תלות בערכים קשיחים
-- 📈 **גרפים מתקדמים** - התפלגות סטטוסים, נוכחות חודשית, נוכחות יומית
-- 📋 **יומן חודשי** - תצוגה ויזואלית של כל יום בחודש
-- 📥 **ייצוא ל-CSV** - הורדת נתונים לקובץ Excel
-- 💾 **שמירה אוטומטית** - שמירת נתונים ב-localStorage וקובצי CSV
+הממשק החדש (UI כמו המקור: רקע `#F6E467`, Assistant/Oswald) נמצא בתיקייה `web/`:
 
-## דרישות מערכת
-
-- Python 3.8 ומעלה
-- pip (מנהל חבילות Python)
-
-## התקנה
-
-1. שכפל את הפרויקט:
 ```bash
-git clone https://github.com/nihug-rabaz/report1-dashboard.git
-cd report1-dashboard
+cd web
+npm install
+npm run dev -- -p 3100 -H 127.0.0.1
 ```
 
-2. התקן את התלויות:
+פתחו: `http://127.0.0.1:3100` → `/login` (ת״ז → Microsoft → הדבקת `#code=`).
+
+פרטים: [`web/README.md`](web/README.md).
+
+## Legacy Flask
+
 ```bash
 pip install -r requirements.txt
-```
-
-## הפעלה
-
-הפעל את השרת:
-```bash
 python app.py
 ```
 
-פתח דפדפן וגש לכתובת:
-```
-http://localhost:5000
-```
+`http://localhost:5000` — נשאר לתאימות; הפיתוח החדש ב-Next.
 
-## שימוש
+## מסכים
 
-### קבלת Cookie
+| נתיב | תפקיד |
+|------|--------|
+| `/login` | אשף התחברות + הדבקת Cookie |
+| `/home` | סיכום סטטוס נוכחי |
+| `/report` | דיווח מרוכז (פיצ׳ר A+B) |
+| `/stats` | סטטיסטיקות וגרפים |
 
-1. פתח את הדפדפן והתחבר לאתר one.prat.idf.il
-2. לחץ F12 לפתיחת כלי המפתחים
-3. לך לטאב Network
-4. בצע פעולה כלשהי באתר (למשל רענון דף)
-5. בחר בקשה כלשהי ברשימה
-6. בחר בטאב Headers
-7. מצא את השדה `Cookie` והעתק את הערך
+## API עיקרי
 
-### הגדרת טווח תאריכים
+- `POST /api/session/validate` — אימות Cookie
+- `POST /api/statuses` — מילון Main/Secondary
+- `POST /api/report/bulk` — שליחת דיווחים עתידיים לפי רשימת תאריכים
+- `POST /api/statistics` / `POST /api/export/csv` — קריאה / ייצוא
 
-1. בחר חודש ושנת התחלה
-2. בחר חודש ושנת סיום
-3. הדבק את ה-Cookie בשדה המתאים
-4. לחץ על "טען נתונים"
-
-### ייצוא נתונים
-
-לחץ על כפתור "📥 הורד נתונים ל-CSV" כדי להוריד את כל הנתונים לקובץ Excel.
-
-## מבנה הפרויקט
+## מבנה
 
 ```
-report1-dashboard/
-├── app.py                      # שרת Flask הראשי
-├── requirements.txt            # תלויות הפרויקט
-├── templates/
-│   └── index.html             # ממשק המשתמש
-├── services/
-│   ├── attendance_api_service.py    # שירות API לנוכחות
-│   └── statistics_processor.py      # עיבוד סטטיסטיקות
-└── csv_exports/               # קבצי CSV שמורים
+app.py
+services/
+  attendance_api_service.py
+  future_reporter.py
+  statistics_processor.py
+static/css/app.css
+static/js/session.js
+static/js/report.js
+templates/
+  base.html, login.html, home.html, report.html, stats.html
 ```
 
 ## אבטחה
 
-⚠️ **חשוב:**
-- הקוקי נשמר ב-localStorage בדפדפן שלך בלבד
-- לא מומלץ לשתף את הקוקי עם אחרים
-- הקוקי נשלח לשרת דרך POST body ולא דרך URL
-- אין קוקי קשיח בקוד - כל הקוקי מגיע מהמשתמש
-
-## פיתוח
-
-הפרויקט בנוי ב:
-- **Backend:** Flask (Python)
-- **Frontend:** HTML, CSS, JavaScript
-- **Charts:** Chart.js
+- אל תשתף Cookie עם אחרים
+- Cookie נשלח ב-POST body לשרת המקומי בלבד לצורך פרוקסי ל-One Prat
+- אין שמירת Cookie בשרת או ב-CSV
 
 ## רישיון
 
-פרויקט זה מיועד לשימוש אישי בלבד.
-
-## תמיכה
-
-לשאלות או בעיות, פתח issue ב-GitHub.
+שימוש אישי בלבד.

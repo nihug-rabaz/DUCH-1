@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% set active = 'report' %}
+{% block title %}דיווח מרוכז · DUCH-1 Premium{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>דיווח נוכחות מרוכז</h2>
+  <p class="muted">בחרו מספר תאריכים — כולל מעבר לחלון 7 הימים של ממשק דו״ח 1 — ודווחו בפעולה אחת.</p>
+  <div id="report-error" class="notice notice-error" style="display:none; margin-top:12px;"></div>
+</div>
+
+<div class="card">
+  <div class="calendar-toolbar">
+    <button class="btn btn-secondary" type="button" id="cal-prev">חודש קודם</button>
+    <h3 id="cal-title" style="margin:0;"></h3>
+    <button class="btn btn-secondary" type="button" id="cal-next">חודש הבא</button>
+  </div>
+  <div class="row" style="margin-bottom:12px;">
+    <button class="btn btn-primary" type="button" id="btn-mode-toggle">בחירה ידנית</button>
+    <button class="btn btn-secondary" type="button" id="btn-mode-range">בחר טווח</button>
+    <button class="btn btn-secondary" type="button" id="btn-mode-workdays">בחר ימי עבודה</button>
+    <button class="btn btn-ghost" type="button" id="btn-clear">נקה בחירה</button>
+  </div>
+  <div class="calendar-grid" id="calendar-grid"></div>
+  <div class="row" style="margin-top:14px; justify-content:space-between;">
+    <div>
+      <strong><span id="selected-count">0</span> ימים נבחרו</strong>
+      <div class="muted" id="selected-range">לא נבחרו תאריכים</div>
+    </div>
+    <button class="btn btn-primary" type="button" id="btn-continue">המשך לדיווח</button>
+  </div>
+</div>
+
+<div class="card stack" id="codes-card">
+  <h3>סוג דיווח</h3>
+  <div>
+    <label for="main-code">ראשי (MainCode)</label>
+    <select id="main-code"></select>
+  </div>
+  <div>
+    <label for="secondary-code">משני (SecondaryCode)</label>
+    <select id="secondary-code"></select>
+  </div>
+  <div>
+    <label for="note">הערה (אופציונלי)</label>
+    <input type="text" id="note" placeholder="הערה לדיווח">
+  </div>
+  <label class="row" style="font-weight:600;">
+    <input type="checkbox" id="skip-duplicates" checked>
+    דלג על תאריכים שכבר יש עליהם דיווח עתידי
+  </label>
+</div>
+
+<div class="card">
+  <h3>תוצאות שליחה</h3>
+  <div id="results" class="results-list">
+    <div class="muted">עדיין לא נשלח דיווח</div>
+  </div>
+</div>
+
+<div class="sticky-cta">
+  <div class="inner">
+    <div>
+      <strong>דווח על <span id="sticky-count">0</span> ימים</strong>
+      <div class="muted">כל תאריך = בקשת InsertFutureReport נפרדת</div>
+    </div>
+    <button class="btn btn-green" type="button" id="btn-submit-bulk" disabled>דווח עכשיו</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/report.js') }}"></script>
+{% endblock %}
