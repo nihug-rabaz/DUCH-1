@@ -1,3 +1,5 @@
+import { pratFetch } from "@/lib/prat-fetch";
+
 const BASE = "https://one.prat.idf.il";
 
 function headers(cookie: string, referer = "https://one.prat.idf.il/hp", json = true) {
@@ -49,7 +51,7 @@ function isoToPrat(iso: string) {
 }
 
 export async function validateSession(cookie: string) {
-  const statusRes = await fetch(`${BASE}/api/Attendance/GetAllFilterStatuses`, {
+  const statusRes = await pratFetch(`${BASE}/api/Attendance/GetAllFilterStatuses`, {
     headers: headers(cookie, "https://one.prat.idf.il/hp", false),
   });
   if (statusRes.status === 401 || statusRes.status === 403) {
@@ -64,7 +66,7 @@ export async function validateSession(cookie: string) {
   }
   let userName = "";
   try {
-    const userRes = await fetch(`${BASE}/api/account/getUser`, {
+    const userRes = await pratFetch(`${BASE}/api/account/getUser`, {
       headers: headers(cookie, "https://one.prat.idf.il/hp", false),
     });
     if (userRes.ok) {
@@ -79,7 +81,7 @@ export async function validateSession(cookie: string) {
 }
 
 export async function getFilterStatuses(cookie: string) {
-  const response = await fetch(`${BASE}/api/Attendance/GetAllFilterStatuses`, {
+  const response = await pratFetch(`${BASE}/api/Attendance/GetAllFilterStatuses`, {
     headers: headers(cookie, "https://one.prat.idf.il/hp", false),
   });
   const body = await response.json().catch(() => ({}));
@@ -87,7 +89,7 @@ export async function getFilterStatuses(cookie: string) {
 }
 
 export async function getReportedData(cookie: string) {
-  const response = await fetch(`${BASE}/api/Attendance/GetReportedData`, {
+  const response = await pratFetch(`${BASE}/api/Attendance/GetReportedData`, {
     headers: headers(cookie, "https://one.prat.idf.il/hp", false),
   });
   if (response.status === 401 || response.status === 403) {
@@ -98,7 +100,7 @@ export async function getReportedData(cookie: string) {
 }
 
 export async function getFutureReportsMonth(cookie: string, month: number, year: number) {
-  const response = await fetch(`${BASE}/api/Attendance/getFutureReport`, {
+  const response = await pratFetch(`${BASE}/api/Attendance/getFutureReport`, {
     method: "POST",
     headers: headers(cookie, "https://one.prat.idf.il/calendar", true),
     body: JSON.stringify({ month, year }),
@@ -166,7 +168,7 @@ export async function getFutureReports(cookie: string, monthsAhead = 3) {
 
 export async function deleteFutureReport(cookie: string, datePrat: string) {
   const url = `${BASE}/api/Attendance/deleteFutureReport?dateToDelete=${encodeURIComponent(datePrat)}`;
-  const response = await fetch(url, {
+  const response = await pratFetch(url, {
     method: "POST",
     headers: headers(cookie, "https://one.prat.idf.il/calendar", false),
   });
@@ -197,7 +199,7 @@ export async function insertFutureReport(
   form.append("SecondaryCode", String(secondaryCode));
   form.append("Note", note || "");
   form.append("FutureReportDate", String(futureReportDate));
-  const response = await fetch(`${BASE}/api/Attendance/InsertFutureReport`, {
+  const response = await pratFetch(`${BASE}/api/Attendance/InsertFutureReport`, {
     method: "POST",
     headers: {
       ...headers(cookie, "https://one.prat.idf.il/uploadFiles", false),
@@ -239,7 +241,7 @@ export async function insertFutureReport(
 }
 
 export async function fetchMonthData(cookie: string, month: number, year: number) {
-  const response = await fetch(`${BASE}/api/Attendance/memberHistory`, {
+  const response = await pratFetch(`${BASE}/api/Attendance/memberHistory`, {
     method: "POST",
     headers: headers(cookie, "https://one.prat.idf.il/history", true),
     body: JSON.stringify({ month, year }),

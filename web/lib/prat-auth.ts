@@ -1,3 +1,5 @@
+import { pratFetch, pratProxyConfigured } from "@/lib/prat-fetch";
+
 const BASE = "https://one.prat.idf.il";
 const LOGIN_PAGE = `${BASE}/login`;
 const LOGIN_URL = `${BASE}/api/account/login`;
@@ -64,7 +66,16 @@ export async function loginWithMsToken(
   let cookieJar = bootstrapCookie.trim();
 
   try {
-    const warm = await fetch(LOGIN_PAGE, {
+    if (process.env.VERCEL === "1" && !pratProxyConfigured()) {
+      return {
+        ok: false,
+        error:
+          "חסר פרוקסי לישראל (API_PROXY_*) בפרודקשן — one.prat חוסם IP של Vercel (403)",
+        http_status: 0,
+      };
+    }
+
+    const warm = await pratFetch(LOGIN_PAGE, {
       headers: {
         "user-agent": UA,
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -74,7 +85,7 @@ export async function loginWithMsToken(
     });
     cookieJar = mergeCookies(cookieJar, cookiesFromResponse(warm));
 
-    const response = await fetch(LOGIN_URL, {
+    const response = await pratFetch(LOGIN_URL, {
       method: "GET",
       headers: {
         accept: "application/json, text/plain, */*",
@@ -129,6 +140,10 @@ export async function loginWithMsToken(
     }
 
     let err = `login נכשל (${response.status})`;
+    if (response.status === 403) {
+      err =
+        "login נכשל (403): one.prat חסם את הבקשה — בדקו ש־API_PROXY_* מוגדר בפרודקשן (כמו בחוגר).";
+    }
     if (response.status === 404) {
       err =
         "login נכשל (404): ה-SPA משתמש ב-GET /api/account/login — ייתכן חסימת WAF.";
