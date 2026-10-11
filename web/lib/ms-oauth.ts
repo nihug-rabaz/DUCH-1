@@ -157,3 +157,19 @@ export async function exchangeCode(code: string, codeVerifier: string) {
 export function jwtForPratLogin(tokens: Record<string, string>) {
   return (tokens.id_token || tokens.access_token || "").trim();
 }
+
+/** True when Entra Conditional Access blocked token issuance (common on cloud egress). */
+export function isConditionalAccessError(message: string): boolean {
+  const text = (message || "").toUpperCase();
+  return (
+    text.includes("AADSTS53003") ||
+    text.includes("CONDITIONAL ACCESS") ||
+    text.includes("BLOCKEDBYCONDITIONALACCESS") ||
+    text.includes("DOES NOT ALLOW TOKEN ISSUANCE")
+  );
+}
+
+export const CA_BLOCK_MESSAGE_HE =
+  "מדיניות Conditional Access של הארגון חוסמת המרת טוקן משרת הענן (Vercel). " +
+  "ההתחברות ב־Microsoft הצליחה, אבל ההמרה מהשרת נחסמה. " +
+  "השתמשו בגיבוי: הדביקו Cookie מ־one.prat (כולל AppCookie) או JWT.";

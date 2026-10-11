@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { BrandTitle } from "@/components/BrandTitle";
 import { BRAND_TITLE_HE } from "@/lib/brand";
+import { CA_BLOCK_MESSAGE_HE, isConditionalAccessError } from "@/lib/ms-oauth";
 import {
   clearOAuthPending,
   clearSession,
@@ -20,6 +21,8 @@ export default function LoginPage() {
   const [idNumber, setIdNumber] = useState("");
   const [authUrl, setAuthUrl] = useState("");
   const [redirectUrl, setRedirectUrl] = useState("");
+  const [fallbackSecret, setFallbackSecret] = useState("");
+  const [showFallback, setShowFallback] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,6 +35,13 @@ export default function LoginPage() {
     const pending = getOAuthPending();
     if (pending?.idNumber) setIdNumber(pending.idNumber);
   }, [router]);
+
+  function goHome(cookie: string, userName: string, authMode: string) {
+    setSession(cookie, { userName, authMode });
+    clearOAuthPending();
+    setSuccess("התחברת בהצלחה");
+    setTimeout(() => router.push("/home"), 600);
+  }
 
   async function startAuth() {
     setError("");
@@ -73,14 +83,55 @@ export default function LoginPage() {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "התחברות נכשלה");
-      setSession(data.cookie, {
-        userName: data.user_name || "",
-        authMode: data.auth_mode || "oauth-paste-url",
+      if (!response.ok) {
+        if (data.ca_blocked || isConditionalAccessError(data.error || data.detail || "")) {
+          setShowFallback(true);
+          throw new Error(data.error || CA_BLOCK_MESSAGE_HE);
+        }
+        throw new Error(data.error || "התחברות נכשלה");
+      }
+      goHome(data.cookie, data.user_name || "", data.auth_mode || "oauth-paste-url");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function completeFallback() {
+    setError("");
+    setSuccess("");
+    setBusy(true);
+    try {
+      const raw = fallbackSecret.trim();
+      if (!raw) throw new Error("הדביקו Cookie או JWT");
+
+      const looksLikeJwt = raw.split(".").length >= 3 && !raw.includes("AppCookie=");
+      if (looksLikeJwt) {
+        const response = await fetch("/api/session/ms-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ms_token: raw }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.cookie) {
+          throw new Error(data.error || "התחברות עם JWT נכשלה");
+        }
+        goHome(data.cookie, data.user_name || "", data.auth_mode || "ms-login");
+        return;
+      }
+
+      if (!raw.includes("AppCookie=")) {
+        throw new Error("ה־Cookie חייב לכלול AppCookie= (מהדביקו מ־DevTools ב־one.prat)");
+      }
+      const response = await fetch("/api/session/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cookie: raw }),
       });
-      clearOAuthPending();
-      setSuccess("התחברת בהצלחה");
-      setTimeout(() => router.push("/home"), 600);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "אימות Cookie נכשל");
+      goHome(raw, data.user_name || "", "cookie-paste");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -129,6 +180,9 @@ export default function LoginPage() {
               {error ? <div className="notice error">{error}</div> : null}
               <button className="btn-general send" type="button" disabled={busy || idNumber.length < 5} onClick={startAuth}>
                 המשך
+              </button>
+              <button className="text-link" type="button" onClick={() => setShowFallback(true)}>
+                גיבוי: Cookie / JWT
               </button>
               <button
                 className="text-link"
@@ -190,8 +244,48 @@ export default function LoginPage() {
               >
                 התחבר
               </button>
+              <button
+                className="text-link"
+                type="button"
+                onClick={() => setShowFallback(true)}
+              >
+                לא עובד? גיבוי Cookie / JWT
+              </button>
               <button className="text-link" type="button" onClick={() => setStep(2)}>
                 חזרה
+              </button>
+            </div>
+          ) : null}
+
+          {showFallback ? (
+            <div className="stack tight fallback-panel">
+              <h2 className="login-title">גיבוי התחברות</h2>
+              <p className="help">
+                התחברו ל־one.prat.idf.il כרגיל → DevTools → Application → Cookies → העתיקו את כל שורת
+                ה־Cookie (חייבת לכלול <code>AppCookie=</code>), או הדביקו JWT מ־Microsoft.
+              </p>
+              <div className="field">
+                <label htmlFor="fallback-secret">Cookie מלא או JWT</label>
+                <textarea
+                  id="fallback-secret"
+                  className="form-control ltr"
+                  value={fallbackSecret}
+                  onChange={(e) => setFallbackSecret(e.target.value)}
+                  placeholder="AppCookie=...; או eyJ..."
+                />
+              </div>
+              {error ? <div className="notice error">{error}</div> : null}
+              {success ? <div className="notice success">{success}</div> : null}
+              <button
+                className="btn-general send"
+                type="button"
+                disabled={busy || !fallbackSecret.trim()}
+                onClick={completeFallback}
+              >
+                התחבר עם גיבוי
+              </button>
+              <button className="text-link" type="button" onClick={() => setShowFallback(false)}>
+                סגור גיבוי
               </button>
             </div>
           ) : null}

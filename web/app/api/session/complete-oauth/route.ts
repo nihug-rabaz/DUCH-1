@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { exchangeCode, jwtForPratLogin, parseRedirectUrl } from "@/lib/ms-oauth";
+import {
+  CA_BLOCK_MESSAGE_HE,
+  exchangeCode,
+  isConditionalAccessError,
+  jwtForPratLogin,
+  parseRedirectUrl,
+} from "@/lib/ms-oauth";
 import { loginWithMsToken } from "@/lib/prat-auth";
 import { validateSession } from "@/lib/attendance";
 
@@ -54,6 +60,17 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    if (isConditionalAccessError(msg)) {
+      return NextResponse.json(
+        {
+          error: CA_BLOCK_MESSAGE_HE,
+          error_code: "AADSTS53003",
+          ca_blocked: true,
+          detail: msg,
+        },
+        { status: 403 },
+      );
+    }
     const status = msg.includes("authorization_") || msg.includes("invalid") ? 400 : 500;
     return NextResponse.json({ error: msg }, { status });
   }
