@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { BrandTitle } from "@/components/BrandTitle";
+import { SpaTokenExchangeHost } from "@/components/SpaTokenExchangeHost";
 import { BRAND_TITLE_HE } from "@/lib/brand";
-import { CA_BLOCK_MESSAGE_HE, isConditionalAccessError } from "@/lib/ms-oauth";
+import {
+  CA_BLOCK_MESSAGE_HE,
+  isConditionalAccessError,
+  parseRedirectUrl,
+  type MicrosoftTokenResponse,
+} from "@/lib/ms-oauth-browser";
 import {
   clearOAuthPending,
   clearSession,
@@ -15,6 +21,8 @@ import {
   setSession,
 } from "@/lib/session";
 
+type PendingExchange = { code: string; codeVerifier: string };
+
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -23,6 +31,7 @@ export default function LoginPage() {
   const [redirectUrl, setRedirectUrl] = useState("");
   const [fallbackSecret, setFallbackSecret] = useState("");
   const [showFallback, setShowFallback] = useState(false);
+  const [pendingExchange, setPendingExchange] = useState<PendingExchange | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,12 +45,16 @@ export default function LoginPage() {
     if (pending?.idNumber) setIdNumber(pending.idNumber);
   }, [router]);
 
-  function goHome(cookie: string, userName: string, authMode: string) {
-    setSession(cookie, { userName, authMode });
-    clearOAuthPending();
-    setSuccess("התחברת בהצלחה");
-    setTimeout(() => router.push("/home"), 600);
-  }
+  const goHome = useCallback(
+    (cookie: string, userName: string, authMode: string) => {
+      setSession(cookie, { userName, authMode });
+      clearOAuthPending();
+      setPendingExchange(null);
+      setSuccess("התחברת בהצלחה");
+      setTimeout(() => router.push("/home"), 600);
+    },
+    [router],
+  );
 
   async function startAuth() {
     setError("");
@@ -65,38 +78,60 @@ export default function LoginPage() {
     }
   }
 
-  async function completeAuth() {
+  function beginDeviceExchange() {
     setError("");
     setSuccess("");
-    setBusy(true);
     try {
       const pending = getOAuthPending();
       if (!pending?.codeVerifier) {
         throw new Error("חסר code_verifier — התחילו מחדש משלב תעודת הזהות");
       }
-      const response = await fetch("/api/session/complete-oauth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pasted_url: redirectUrl,
-          code_verifier: pending.codeVerifier,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        if (data.ca_blocked || isConditionalAccessError(data.error || data.detail || "")) {
-          setShowFallback(true);
-          throw new Error(data.error || CA_BLOCK_MESSAGE_HE);
-        }
-        throw new Error(data.error || "התחברות נכשלה");
-      }
-      goHome(data.cookie, data.user_name || "", data.auth_mode || "oauth-paste-url");
+      const parsed = parseRedirectUrl(redirectUrl);
+      setBusy(true);
+      // HOGER: redeem on device, then POST tokens only
+      setPendingExchange({ code: parsed.code, codeVerifier: pending.codeVerifier });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
       setBusy(false);
     }
   }
+
+  const onTokens = useCallback(
+    async (tokens: MicrosoftTokenResponse) => {
+      try {
+        const response = await fetch("/api/session/complete-oauth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id_token: tokens.id_token || "",
+            access_token: tokens.access_token || "",
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.cookie) {
+          throw new Error(data.error || data.message || "התחברות נכשלה");
+        }
+        goHome(data.cookie, data.user_name || "", data.auth_mode || "oauth-paste-url");
+      } catch (e) {
+        setPendingExchange(null);
+        setError(e instanceof Error ? e.message : String(e));
+        setBusy(false);
+      }
+    },
+    [goHome],
+  );
+
+  const onExchangeError = useCallback((message: string) => {
+    setPendingExchange(null);
+    setBusy(false);
+    if (isConditionalAccessError(message)) {
+      setShowFallback(true);
+      setError(CA_BLOCK_MESSAGE_HE);
+      return;
+    }
+    setShowFallback(true);
+    setError(message || "המרת טוקן נכשלה");
+  }, []);
 
   async function completeFallback() {
     setError("");
@@ -141,6 +176,15 @@ export default function LoginPage() {
 
   return (
     <AppShell showNav={false}>
+      {pendingExchange ? (
+        <SpaTokenExchangeHost
+          code={pendingExchange.code}
+          codeVerifier={pendingExchange.codeVerifier}
+          onSuccess={onTokens}
+          onError={onExchangeError}
+        />
+      ) : null}
+
       <section className="login-section">
         <div className="login-hero">
           <div className="login-brand">
@@ -203,7 +247,7 @@ export default function LoginPage() {
               <p className="help center">
                 אחרי ההתחברות — העתיקו את כל הקישור משורת הכתובת, כולל <code>#code=</code>
               </p>
-              <div className="notice info">אל תסגרו את חלון Microsoft לפני שהכתובת חוזרת ל־one.prat</div>
+              <div className="notice info">כמו בחוגר: ההמרה לטוקן מתבצעת במכשיר שלכם, לא בשרת</div>
               <button
                 className="btn-general send"
                 type="button"
@@ -233,22 +277,20 @@ export default function LoginPage() {
                   placeholder="https://one.prat.idf.il/#code=..."
                 />
               </div>
-              <p className="help">נזהה את ה־code, נמיר לטוקן, וניצור סשן {BRAND_TITLE_HE}</p>
+              <p className="help">
+                נמיר את ה־code לטוקן בדפדפן (כמו בחוגר), ואז ניצור סשן {BRAND_TITLE_HE}
+              </p>
               {error ? <div className="notice error">{error}</div> : null}
               {success ? <div className="notice success">{success}</div> : null}
               <button
                 className="btn-general send"
                 type="button"
                 disabled={busy || !redirectUrl.includes("code=")}
-                onClick={completeAuth}
+                onClick={beginDeviceExchange}
               >
-                התחבר
+                {busy && pendingExchange ? "ממיר טוקן…" : "התחבר"}
               </button>
-              <button
-                className="text-link"
-                type="button"
-                onClick={() => setShowFallback(true)}
-              >
+              <button className="text-link" type="button" onClick={() => setShowFallback(true)}>
                 לא עובד? גיבוי Cookie / JWT
               </button>
               <button className="text-link" type="button" onClick={() => setStep(2)}>

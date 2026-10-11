@@ -1,32 +1,36 @@
 import { NextResponse } from "next/server";
-import {
-  CA_BLOCK_MESSAGE_HE,
-  exchangeCode,
-  isConditionalAccessError,
-  jwtForPratLogin,
-  parseRedirectUrl,
-} from "@/lib/ms-oauth";
+import { jwtForPratLogin } from "@/lib/ms-oauth-browser";
 import { loginWithMsToken } from "@/lib/prat-auth";
 import { validateSession } from "@/lib/attendance";
 
+/**
+ * HOGER-style: server accepts MS tokens only.
+ * Code + code_verifier must be redeemed on-device (browser), never here.
+ */
 export async function POST(request: Request) {
   try {
     const data = await request.json().catch(() => ({}));
-    const pastedUrl = String(data.pasted_url || data.redirect_url || "").trim();
+    const code = String(data.code || "").trim();
     const codeVerifier = String(data.code_verifier || data.codeVerifier || "").trim();
+    const pastedUrl = String(data.pasted_url || data.redirect_url || "").trim();
     const bootstrap = String(data.bootstrap_cookie || "").trim();
-    if (!pastedUrl || !codeVerifier) {
+
+    // Reject server-side SPA redeem (HOGER idf-profile/import)
+    if ((code && codeVerifier) || (pastedUrl && codeVerifier)) {
       return NextResponse.json(
-        { error: "pasted_url and code_verifier are required" },
+        {
+          error: "spa_token_exchange_on_device",
+          message: "יש להמיר את ה־code בדפדפן (כמו בחוגר), לא בשרת",
+        },
         { status: 400 },
       );
     }
 
-    const parsed = parseRedirectUrl(pastedUrl);
-    const tokens = await exchangeCode(parsed.code, codeVerifier);
-    const msJwt = jwtForPratLogin(tokens);
+    const idToken = String(data.id_token || "").trim();
+    const accessToken = String(data.access_token || "").trim();
+    const msJwt = jwtForPratLogin({ id_token: idToken, access_token: accessToken });
     if (!msJwt) {
-      return NextResponse.json({ error: "token_exchange:no_tokens" }, { status: 401 });
+      return NextResponse.json({ error: "tokens_required" }, { status: 400 });
     }
 
     const result = await loginWithMsToken(msJwt, bootstrap);
@@ -60,18 +64,6 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (isConditionalAccessError(msg)) {
-      return NextResponse.json(
-        {
-          error: CA_BLOCK_MESSAGE_HE,
-          error_code: "AADSTS53003",
-          ca_blocked: true,
-          detail: msg,
-        },
-        { status: 403 },
-      );
-    }
-    const status = msg.includes("authorization_") || msg.includes("invalid") ? 400 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

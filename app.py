@@ -116,24 +116,31 @@ def session_auth_url():
 @app.route('/api/session/complete-oauth', methods=['POST'])
 def session_complete_oauth():
     """
-    HOGER paste-URL flow:
-      pasted https://one.prat.idf.il/#code=...
-      + code_verifier from auth-url step
-      → MS tokens → account/login → AppCookie
+    HOGER-style: accept MS tokens only (redeem code on-device / in browser).
+    Rejects code + code_verifier on the server.
     """
     data = request.get_json(silent=True) or {}
     pasted_url = (data.get('pasted_url') or data.get('redirect_url') or '').strip()
+    code = (data.get('code') or '').strip()
     code_verifier = (data.get('code_verifier') or data.get('codeVerifier') or '').strip()
     bootstrap = (data.get('bootstrap_cookie') or '').strip()
-    if not pasted_url or not code_verifier:
-        return jsonify({'error': 'pasted_url and code_verifier are required'}), 400
-    try:
-        parsed = MsOAuthService.parse_redirect_url(pasted_url)
-        tokens = MsOAuthService.exchange_code(parsed['code'], code_verifier)
-        ms_jwt = MsOAuthService.jwt_for_prat_login(tokens)
-        if not ms_jwt:
-            return jsonify({'error': 'token_exchange:no_tokens'}), 401
+    id_token = (data.get('id_token') or '').strip()
+    access_token = (data.get('access_token') or '').strip()
 
+    if (code and code_verifier) or (pasted_url and code_verifier):
+        return jsonify({
+            'error': 'spa_token_exchange_on_device',
+            'message': 'יש להמיר את ה־code בדפדפן (כמו בחוגר), לא בשרת',
+        }), 400
+
+    ms_jwt = MsOAuthService.jwt_for_prat_login({
+        'id_token': id_token,
+        'access_token': access_token,
+    })
+    if not ms_jwt:
+        return jsonify({'error': 'tokens_required'}), 400
+
+    try:
         result = PratAuthService.login_with_ms_token(ms_jwt, bootstrap_cookie=bootstrap)
         if not result.get('ok') or not result.get('cookie'):
             return jsonify({
