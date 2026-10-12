@@ -1,9 +1,6 @@
 import { BRAND_TITLE_HE } from "@/lib/brand";
 
-/**
- * Hebrew in Assistant (like original Narkis/Assistant fallback),
- * digits/plus in Oswald — Oswald has no Hebrew glyphs.
- */
+/** Heebo wordmark + gradient plus — HOGER-like polish, דו״ח 1+ identity. */
 export function BrandTitle({ className = "" }: { className?: string }) {
   return (
     <span className={`brand-title ${className}`.trim()} aria-label={BRAND_TITLE_HE}>
