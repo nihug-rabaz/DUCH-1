@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       user_name: validated.user_name || result.user_name || "",
       has_app_cookie: result.has_app_cookie || false,
       auth_mode: "ms-login",
+      expires_at: result.expires_at ?? null,
     });
   } catch (e) {
     return NextResponse.json(

@@ -6,6 +6,8 @@ export type DuchSession = {
   valid: boolean;
   userName?: string;
   authMode?: string;
+  /** Epoch ms from Prat AppCookie Max-Age/Expires when known. */
+  expiresAt?: number | null;
 };
 
 const SESSION_KEY = "duch1_session";

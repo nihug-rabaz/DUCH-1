@@ -9,17 +9,20 @@ import { clearSession } from "@/lib/session";
 
 const MENU = [
   { href: "/home", label: "דיווח נוכחות", icon: "/img/basis.png" },
-  { href: "/calendar", label: "דיווחים עתידיים", icon: "/img/futureReport.png" },
+  { href: "/calendar", label: "דיווחים עתידיים", icon: "/img/illus-calendar.jpg" },
   { href: "/stats", label: "ירוק בעיניים", icon: "/img/emergencyPractice.png" },
 ];
 
 export function AppShell({
   showBack = false,
   showNav = true,
+  /** Hide sticky header chrome (login hero carries the brand). */
+  hideHeader = false,
   children,
 }: {
   showBack?: boolean;
   showNav?: boolean;
+  hideHeader?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -31,43 +34,45 @@ export function AppShell({
   }, [pathname]);
 
   return (
-    <div className="app-root">
-      <div className="header-section">
-        <header className="header">
-          {showBack ? (
-            <button
-              type="button"
-              className="header-back"
-              aria-label="חזרה"
-              onClick={() => router.back()}
-            />
-          ) : null}
-          <Link href="/home" className="brand-title-link">
-            <BrandTitle />
-          </Link>
-          {showNav && !showBack ? (
-            <button
-              type="button"
-              className="menu-btn"
-              aria-label="תפריט"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen(true)}
-            >
-              <Image src="/img/menuBtn.png" alt="" width={25} height={15} unoptimized />
-            </button>
-          ) : null}
-          {showBack ? (
-            <button
-              type="button"
-              className="header-close"
-              aria-label="סגור"
-              onClick={() => router.push("/home")}
-            />
-          ) : null}
-        </header>
-      </div>
+    <div className={`app-root${hideHeader ? " app-root--chromeless" : ""}`}>
+      {hideHeader ? null : (
+        <div className="header-section">
+          <header className="header">
+            {showBack ? (
+              <button
+                type="button"
+                className="header-back"
+                aria-label="חזרה"
+                onClick={() => router.back()}
+              />
+            ) : null}
+            <Link href="/home" className="brand-title-link">
+              <BrandTitle />
+            </Link>
+            {showNav && !showBack ? (
+              <button
+                type="button"
+                className="menu-btn"
+                aria-label="תפריט"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(true)}
+              >
+                <Image src="/img/menuBtn.png" alt="" width={25} height={15} unoptimized />
+              </button>
+            ) : null}
+            {showBack ? (
+              <button
+                type="button"
+                className="header-close"
+                aria-label="סגור"
+                onClick={() => router.push("/home")}
+              />
+            ) : null}
+          </header>
+        </div>
+      )}
 
-      {children}
+      <div className="app-main">{children}</div>
 
       {showNav && menuOpen ? (
         <>

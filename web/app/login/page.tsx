@@ -46,8 +46,8 @@ export default function LoginPage() {
   }, [router]);
 
   const goHome = useCallback(
-    (cookie: string, userName: string, authMode: string) => {
-      setSession(cookie, { userName, authMode });
+    (cookie: string, userName: string, authMode: string, expiresAt?: number | null) => {
+      setSession(cookie, { userName, authMode, expiresAt: expiresAt ?? null });
       clearOAuthPending();
       setPendingExchange(null);
       setSuccess("התחברת בהצלחה");
@@ -111,7 +111,12 @@ export default function LoginPage() {
         if (!response.ok || !data.cookie) {
           throw new Error(data.error || data.message || "התחברות נכשלה");
         }
-        goHome(data.cookie, data.user_name || "", data.auth_mode || "oauth-paste-url");
+        goHome(
+          data.cookie,
+          data.user_name || "",
+          data.auth_mode || "oauth-paste-url",
+          data.expires_at ?? null,
+        );
       } catch (e) {
         setPendingExchange(null);
         setError(e instanceof Error ? e.message : String(e));
@@ -152,7 +157,12 @@ export default function LoginPage() {
         if (!response.ok || !data.cookie) {
           throw new Error(data.error || "התחברות עם JWT נכשלה");
         }
-        goHome(data.cookie, data.user_name || "", data.auth_mode || "ms-login");
+        goHome(
+          data.cookie,
+          data.user_name || "",
+          data.auth_mode || "ms-login",
+          data.expires_at ?? null,
+        );
         return;
       }
 
@@ -166,7 +176,7 @@ export default function LoginPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "אימות Cookie נכשל");
-      goHome(raw, data.user_name || "", "cookie-paste");
+      goHome(raw, data.user_name || "", "cookie-paste", data.expires_at ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -175,7 +185,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AppShell showNav={false}>
+    <AppShell showNav={false} hideHeader>
       {pendingExchange ? (
         <SpaTokenExchangeHost
           code={pendingExchange.code}
@@ -186,11 +196,11 @@ export default function LoginPage() {
       ) : null}
 
       <section className="login-section">
-        <div className="login-hero">
-          <div className="login-brand">
-            <BrandTitle className="login-brand-title" />
+        <div className="login-visual" aria-hidden="true">
+          <div className="login-visual-copy">
+            <BrandTitle className="login-brand-title login-brand-on-visual" />
+            <p className="login-sub">גרסת פלוס לדו״ח 1 — אותה חוויה, עם דיווח מרוכז</p>
           </div>
-          <p className="login-sub">גרסת פלוס לדו״ח 1 — אותה חוויה, עם דיווח מרוכז</p>
         </div>
 
         <div className="login-box">

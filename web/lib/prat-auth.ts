@@ -40,6 +40,33 @@ function jarFromSetCookie(headers: string[]): string {
   return mergeCookies("", headers);
 }
 
+/** Best-effort expiry from Set-Cookie Max-Age / Expires for AppCookie (Prat-controlled). */
+export function parseAppCookieExpiresAt(setCookieHeaders: string[]): number | null {
+  for (const header of setCookieHeaders) {
+    const segments = header.split(";").map((p) => p.trim());
+    const first = segments[0] || "";
+    if (!first.toLowerCase().startsWith("appcookie=")) continue;
+    let maxAge: number | null = null;
+    let expiresMs: number | null = null;
+    for (const seg of segments.slice(1)) {
+      const eq = seg.indexOf("=");
+      const key = (eq >= 0 ? seg.slice(0, eq) : seg).trim().toLowerCase();
+      const val = eq >= 0 ? seg.slice(eq + 1).trim() : "";
+      if (key === "max-age") {
+        const n = Number(val);
+        if (Number.isFinite(n)) maxAge = n;
+      }
+      if (key === "expires") {
+        const t = Date.parse(val);
+        if (Number.isFinite(t)) expiresMs = t;
+      }
+    }
+    if (maxAge != null) return Date.now() + maxAge * 1000;
+    if (expiresMs != null) return expiresMs;
+  }
+  return null;
+}
+
 export type PratLoginResult = {
   ok: boolean;
   cookie?: string;
@@ -47,6 +74,8 @@ export type PratLoginResult = {
   error?: string;
   http_status: number;
   has_app_cookie?: boolean;
+  /** Epoch ms when AppCookie is expected to expire, if Prat sent Max-Age/Expires. */
+  expires_at?: number | null;
 };
 
 export async function loginWithMsToken(
@@ -104,9 +133,11 @@ export async function loginWithMsToken(
       redirect: "manual",
     });
 
-    cookieJar = mergeCookies(cookieJar, cookiesFromResponse(response));
+    const loginSetCookies = cookiesFromResponse(response);
+    cookieJar = mergeCookies(cookieJar, loginSetCookies);
     // Also absorb any cookies encoded in jarFromSetCookie for clarity
     void jarFromSetCookie;
+    const expiresAt = parseAppCookieExpiresAt(loginSetCookies);
 
     let body: Record<string, unknown> | null = null;
     try {
@@ -136,6 +167,7 @@ export async function loginWithMsToken(
         user_name: userName,
         http_status: response.status,
         has_app_cookie: hasApp,
+        expires_at: expiresAt,
       };
     }
 

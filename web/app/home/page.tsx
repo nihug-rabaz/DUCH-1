@@ -66,53 +66,66 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      <section className="welcome-section">
+      <section className="welcome-section home-page">
         <div className="welcome-content">
-          {userName ? <div className="welcome-user">שלום, {userName}</div> : null}
-          <h1 className="welcome-title">מה הסטטוס היום?</h1>
-          <div className="time-left">
-            נותרו עוד <span>{left}</span> לשליחת הדיווח
+          <div className="home-intro">
+            {userName ? <div className="welcome-user">שלום, {userName}</div> : null}
+            <h1 className="welcome-title">מה הסטטוס היום?</h1>
+            <div className="time-left">
+              נותרו עוד <span>{left}</span> לשליחת הדיווח
+            </div>
           </div>
 
-          <div className="home-hero">
-            <div className="home-hero-label">פעולה ראשית</div>
-            <div className="home-hero-title">דיווח נוכחות לבסיס</div>
-            <Link href="/report?mode=base" className="location-status-btn" aria-label="אני בבסיס">
-              <span className="location-status-inner">
-                <span className="icon">
-                  <Image src="/img/basis.png" alt="" width={50} height={50} unoptimized />
+          <div className="home-main">
+            <div className="home-hero">
+              <div className="home-hero-copy">
+                <div className="home-hero-label">פעולה ראשית</div>
+                <div className="home-hero-title">דיווח נוכחות לבסיס</div>
+              </div>
+              <Link href="/report?mode=base" className="location-status-btn" aria-label="אני בבסיס">
+                <span className="location-status-inner">
+                  <span className="icon">
+                    <Image src="/img/basis.png" alt="" width={50} height={50} unoptimized />
+                  </span>
+                  <span className="text">
+                    אני
+                    <br />
+                    בבסיס
+                  </span>
                 </span>
-                <span className="text">
-                  אני
-                  <br />
-                  בבסיס
-                </span>
-              </span>
-            </Link>
-          </div>
+              </Link>
+            </div>
 
-          <div className="home-actions">
-            <Link href="/report?mode=other" className="btn-general welcome">
-              <Image className="icon" src="/img/locationBtn.png" alt="" width={17} height={20} unoptimized />
-              אני במקום אחר
-            </Link>
+            <div className="home-actions">
+              <Link href="/report?mode=other" className="btn-general welcome">
+                <Image className="icon" src="/img/locationBtn.png" alt="" width={17} height={20} unoptimized />
+                אני במקום אחר
+              </Link>
 
-            <Link href="/calendar" className="btn-general welcome">
-              <Image className="icon" src="/img/futureReport.png" alt="" width={17} height={17} unoptimized />
-              דיווחים עתידיים{futureCount ? ` (${futureCount})` : ""}
-            </Link>
+              <Link href="/calendar" className="btn-general welcome home-future-btn">
+                <Image
+                  className="icon home-future-illus"
+                  src="/img/illus-calendar.jpg"
+                  alt=""
+                  width={28}
+                  height={28}
+                  unoptimized
+                />
+                דיווחים עתידיים{futureCount ? ` (${futureCount})` : ""}
+              </Link>
 
-            <Link href="/stats" className="btn-general welcome emergency practice">
-              <Image
-                className="icon"
-                src="/img/emergencyPractice.png"
-                alt=""
-                width={17}
-                height={17}
-                unoptimized
-              />
-              ירוק בעיניים
-            </Link>
+              <Link href="/stats" className="btn-general welcome emergency practice">
+                <Image
+                  className="icon"
+                  src="/img/emergencyPractice.png"
+                  alt=""
+                  width={17}
+                  height={17}
+                  unoptimized
+                />
+                ירוק בעיניים
+              </Link>
+            </div>
           </div>
 
           {error ? <div className="notice error">{error}</div> : null}

@@ -61,6 +61,7 @@ export async function POST(request: Request) {
       user_name: validated.user_name || result.user_name || "",
       has_app_cookie: result.has_app_cookie || false,
       auth_mode: "oauth-paste-url",
+      expires_at: result.expires_at ?? null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

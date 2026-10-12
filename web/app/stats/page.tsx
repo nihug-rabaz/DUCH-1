@@ -39,10 +39,8 @@ export default function StatsPage() {
 
   return (
     <AppShell showBack>
-      <main className="page stack" style={{ maxWidth: 480 }}>
-        <h1 className="welcome-title" style={{ fontSize: "1.6rem" }}>
-          ירוק בעיניים
-        </h1>
+      <main className="page stack">
+        <h1 className="welcome-title">ירוק בעיניים</h1>
         <p className="help center">מבט מהיר על הסשן והדיווחים העתידיים.</p>
 
         {summary ? (
